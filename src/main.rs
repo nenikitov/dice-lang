@@ -10,10 +10,10 @@ fn main() {
     )
     .expect("File is readable");
 
-    for result in token::Token::lexer(&file) {
+    for (result, span) in token::Token::lexer(&file).spanned() {
         match result {
             Ok(token) => println!("{:?}", token),
-            Err(e) => panic!("some error occurred: {:?}", e),
+            Err(e) => panic!("some error occurred: {e} at {span:?}"),
         }
     }
 }
