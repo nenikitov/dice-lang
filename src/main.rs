@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let tokens = Stream::from_iter(tokens).spanned((src.len()..src.len()).into());
 
     match parser::parser().parse(tokens).into_result() {
-        Ok(ast) => println!("{ast:?}"),
+        Ok(ast) => println!("{ast:#?}"),
         Err(errors) => {
             for error in errors {
                 println!("{error:?}");
