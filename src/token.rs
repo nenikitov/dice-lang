@@ -1,4 +1,7 @@
-use std::num::{NonZeroU8, ParseIntError};
+use std::{
+    fmt::Display,
+    num::{NonZeroU8, ParseIntError},
+};
 
 use logos::Logos;
 
@@ -55,11 +58,11 @@ pub enum Token<'src> {
     #[token("/-")]
     DivideFloor,
 
-    #[token("/+")]
-    DivideCeil,
-
     #[token("/~")]
     DivideRound,
+
+    #[token("/+")]
+    DivideCeil,
 
     #[token("(")]
     ParenOpen,
@@ -71,4 +74,28 @@ pub enum Token<'src> {
     Symbol(&'src str),
 
     Error(TokenError),
+}
+
+impl<'src> Display for Token<'src> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Token::Number(n) => format!("{n}"),
+                Token::DieIndicator => "d".to_string(),
+                Token::Colon => ":".to_string(),
+                Token::Plus => "+".to_string(),
+                Token::Minus => "-".to_string(),
+                Token::Multiply => "*".to_string(),
+                Token::DivideFloor => "/-".to_string(),
+                Token::DivideRound => "/~".to_string(),
+                Token::DivideCeil => "/+".to_string(),
+                Token::ParenOpen => "(".to_string(),
+                Token::ParenClose => ")".to_string(),
+                Token::Symbol(s) => s.to_string(),
+                Token::Error(e) => e.to_string(),
+            }
+        )
+    }
 }

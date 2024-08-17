@@ -3,9 +3,9 @@ mod token;
 
 use std::error::Error;
 
+use ariadne::{Color, Label, Report, ReportKind, Source};
 use chumsky::{
     input::{Input, Stream},
-    span::SimpleSpan,
     Parser,
 };
 use logos::Logos;
@@ -31,7 +31,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         Ok(ast) => println!("{ast:#?}"),
         Err(errors) => {
             for error in errors {
-                println!("{error:?}");
+                Report::build(ReportKind::Error, (), error.span().start)
+                    .with_code(3)
+                    .with_message(error.to_string())
+                    .with_label(
+                        Label::new(error.span().into_range())
+                            .with_message(error.reason().to_string())
+                            .with_color(Color::Red),
+                    )
+                    .finish()
+                    .eprint(Source::from(&src))
+                    .unwrap();
             }
         }
     };

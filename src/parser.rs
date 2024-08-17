@@ -1,11 +1,6 @@
 use std::num::NonZeroU8;
 
-use chumsky::{
-    input::{Stream, ValueInput},
-    prelude::*,
-};
-use logos::Logos;
-use std::fmt;
+use chumsky::{input::ValueInput, prelude::*};
 
 use crate::token::Token;
 
@@ -43,19 +38,6 @@ pub enum Ast {
     },
 }
 
-// fn parser() -> impl Parser<Token, Ast, Error = Simple<Token>> {
-//     let number = select! { Token::Number(n) => n };
-//
-//     number.map(Ast::Constant)
-// }
-
-/*
-fn parser<'a, I>() -> impl Parser<'a, I, SExpr, extra::Err<Rich<'a, Token<'a>>>>
-where
-    I: ValueInput<'a, Token = Token<'a>, Span = SimpleSpan>,
-{
-*/
-
 pub fn parser<'src, I>() -> impl Parser<'src, I, Ast, extra::Err<Rich<'src, Token<'src>>>>
 where
     I: ValueInput<'src, Token = Token<'src>, Span = SimpleSpan>,
@@ -63,18 +45,20 @@ where
     let number = select! { Token::Number(n) => n };
 
     recursive(|ast| {
-        let constant = number.map(Ast::Constant);
+        let constant = number.map(Ast::Constant).labelled("constant");
         let dice = number
             .or_not()
+            .labelled("die count")
             .then_ignore(just(Token::DieIndicator))
-            .then(number)
+            .then(number.labelled("die sides"))
             .map(|(count, sides)| {
                 Ast::Dice(Dice {
                     count: count.unwrap_or(unsafe { NonZeroU8::new_unchecked(1) }),
                     sides,
                     modifiers: vec![],
                 })
-            });
+            })
+            .labelled("dice set");
         let atom = choice((
             dice,
             constant,
@@ -83,9 +67,9 @@ where
 
         let product = choice((
             just(Token::Multiply),
-            just(Token::DivideCeil),
             just(Token::DivideFloor),
             just(Token::DivideRound),
+            just(Token::DivideCeil),
         ));
         let product =
             atom.clone()
@@ -96,8 +80,8 @@ where
                         op: match op {
                             Token::Multiply => BinaryOperator::Multiply,
                             Token::DivideFloor => BinaryOperator::DivideFloor,
-                            Token::DivideCeil => BinaryOperator::DivideCeil,
                             Token::DivideRound => BinaryOperator::DivideRound,
+                            Token::DivideCeil => BinaryOperator::DivideCeil,
                             _ => {
                                 unreachable!(
                                     "Only multiplication and division operators are captured"
@@ -124,47 +108,5 @@ where
         );
 
         summation
-
-        // let constant = number.map(Ast::Constant);
-        // let dice = number
-        //     .or_not()
-        //     .then_ignore(just(Token::DieIndicator))
-        //     .then(number)
-        //     .map(|(count, sides)| {
-        //         Ast::Dice(Dice {
-        //             count: count.unwrap_or(unsafe { NonZeroU8::new_unchecked(1) }),
-        //             sides,
-        //             modifiers: vec![],
-        //         })
-        //     });
-        // let atom = choice((dice, constant, ast.clone()));
-
-        // let multiplication_division = choice((
-        //     just(Token::Multiply),
-        //     just(Token::DivideFloor),
-        //     just(Token::DivideCeil),
-        //     just(Token::DivideRound),
-        // ));
-        // let multiplication_division = choice((
-        //     atom.clone()
-        //         .then(multiplication_division)
-        //         .then(atom.clone())
-        //         .map(|((lhs, op), rhs)| Ast::Operation {
-        //             lhs: Box::new(lhs),
-        //             rhs: Box::new(rhs),
-        //             op: match op {
-        //                 Token::Multiply => BinaryOperator::Multiply,
-        //                 Token::DivideFloor => BinaryOperator::DivideFloor,
-        //                 Token::DivideCeil => BinaryOperator::DivideCeil,
-        //                 Token::DivideRound => BinaryOperator::DivideRound,
-        //                 _ => {
-        //                     unreachable!("Only multiplication and division operators are captured")
-        //                 }
-        //             },
-        //         }),
-        //     atom.clone(),
-        // ));
-
-        // multiplication_division
     })
 }
