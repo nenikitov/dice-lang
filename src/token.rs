@@ -30,10 +30,9 @@ impl std::fmt::Display for TokenError {
 
 impl std::error::Error for TokenError {}
 
-#[derive(Logos, Debug, PartialEq)]
+#[derive(Logos, Debug, PartialEq, Clone)]
 #[logos(skip r"\s+", error = TokenError)]
-pub enum Token {
-    // TODO(nenikitov): Remove this `unwrap` and do error handling
+pub enum Token<'src> {
     #[regex(r"\d+", |l| l.slice().parse::<NonZeroU8>())]
     Number(NonZeroU8),
 
@@ -68,6 +67,8 @@ pub enum Token {
     #[token(")")]
     ParenClose,
 
-    #[regex(r"[a-z]+", |l| l.slice().to_owned())]
-    Identifier(String),
+    #[regex(r"[a-z]+")]
+    Symbol(&'src str),
+
+    Error(TokenError),
 }
