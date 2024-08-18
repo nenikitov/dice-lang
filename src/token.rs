@@ -208,4 +208,48 @@ mod tests {
     fn symbol_valid_parses(#[case] input: &str) {
         assert_eq!(Token::lexer(input).next(), Some(Ok(Token::Symbol(input))))
     }
+
+    #[rstest]
+    #[case("1 + 2", "1+2")]
+    #[case("4d6:adv(7)", "4 d 6 :     adv (\n7\t\t)")]
+    fn whitespace_skips(#[case] input_1: &str, #[case] input_2: &str) {
+        assert_eq!(
+            Token::lexer(input_1).collect::<Vec<_>>(),
+            Token::lexer(input_2).collect::<Vec<_>>(),
+        );
+    }
+
+    #[rstest]
+    #[case(
+        "1 + 2",
+        vec![
+            Ok(Token::Number(unsafe {NonZeroU8::new_unchecked(1)})),
+            Ok(Token::Plus),
+            Ok(Token::Number(unsafe {NonZeroU8::new_unchecked(2)})),
+        ]
+    )]
+    #[case(
+        "4d6:adv(3)",
+        vec![
+            Ok(Token::Number(unsafe {NonZeroU8::new_unchecked(4)})),
+            Ok(Token::DieIndicator),
+            Ok(Token::Number(unsafe {NonZeroU8::new_unchecked(6)})),
+            Ok(Token::Colon),
+            Ok(Token::Symbol("adv")),
+            Ok(Token::ParenOpen),
+            Ok(Token::Number(unsafe {NonZeroU8::new_unchecked(3)})),
+            Ok(Token::ParenClose),
+        ]
+    )]
+    #[case(
+        "4d60000",
+        vec![
+            Ok(Token::Number(unsafe {NonZeroU8::new_unchecked(4)})),
+            Ok(Token::DieIndicator),
+            Err(TokenError::InvalidNumber(parse_int_error(IntErrorKind::PosOverflow))),
+        ]
+    )]
+    fn complex_works(#[case] input: &str, #[case] output: Vec<Result<Token, TokenError>>) {
+        assert_eq!(Token::lexer(input).collect::<Vec<_>>(), output);
+    }
 }
