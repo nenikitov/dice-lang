@@ -1,1 +1,1 @@
-4d6 + 1d5
+4d6:adv(3):min(2):reroll_until(<= 3 * 2) + d6:adv + 3

@@ -64,13 +64,31 @@ pub enum Token<'src> {
     #[token("/+")]
     DivideCeil,
 
+    #[token("<")]
+    LessThan,
+
+    #[token("<=")]
+    LessThanEqual,
+
+    #[token(">")]
+    GreaterThan,
+
+    #[token(">=")]
+    GreaterThanEqual,
+
+    #[token("==")]
+    Equal,
+
+    #[token("!=")]
+    NotEqual,
+
     #[token("(")]
     ParenOpen,
 
     #[token(")")]
     ParenClose,
 
-    #[regex(r"[a-z]+")]
+    #[regex(r"[a-z_]+")]
     Symbol(&'src str),
 
     Error(TokenError),
@@ -82,19 +100,25 @@ impl<'src> Display for Token<'src> {
             f,
             "{}",
             match self {
-                Token::Number(n) => format!("{n}"),
+                Token::Number(n) => n.to_string(),
                 Token::DieIndicator => "d".to_string(),
-                Token::Colon => ":".to_string(),
+                Token::Colon => ";".to_string(),
                 Token::Plus => "+".to_string(),
                 Token::Minus => "-".to_string(),
                 Token::Multiply => "*".to_string(),
-                Token::DivideFloor => "/-".to_string(),
+                Token::DivideFloor => "/".to_string(),
                 Token::DivideRound => "/~".to_string(),
                 Token::DivideCeil => "/+".to_string(),
+                Token::LessThan => "<".to_string(),
+                Token::LessThanEqual => "<=".to_string(),
+                Token::GreaterThan => ">".to_string(),
+                Token::GreaterThanEqual => ">=".to_string(),
+                Token::Equal => "==".to_string(),
+                Token::NotEqual => "!=".to_string(),
                 Token::ParenOpen => "(".to_string(),
                 Token::ParenClose => ")".to_string(),
                 Token::Symbol(s) => s.to_string(),
-                Token::Error(e) => e.to_string(),
+                Token::Error(e) => format!("<error: {e}>"),
             }
         )
     }
