@@ -123,3 +123,89 @@ impl<'src> Display for Token<'src> {
         )
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::num::IntErrorKind;
+
+    use paste::paste;
+    use rstest::rstest;
+
+    fn parse_int_error(kind: IntErrorKind) -> ParseIntError {
+        match kind {
+            IntErrorKind::Empty => "",
+            IntErrorKind::InvalidDigit => "A",
+            IntErrorKind::PosOverflow => "1000",
+            IntErrorKind::NegOverflow => "-1000",
+            IntErrorKind::Zero => "0",
+            _ => unreachable!("All kind types are covered"),
+        }
+        .parse::<NonZeroU8>()
+        .expect_err("This method always produces an error")
+    }
+
+    macro_rules! test_token {
+        ($name:ident, $($input:literal ), +) => {
+            paste! {
+                #[rstest]
+                $(#[case($input)])+
+                fn [<$name:snake _valid_parses>](#[case] input: &str) {
+                    assert_eq!(
+                        Token::lexer(input).next(),
+                        Some(Ok(Token::[<$name:camel>]))
+                    );
+                }
+            }
+        };
+    }
+
+    #[rstest]
+    #[case("1", 1)]
+    #[case("10", 10)]
+    #[case("100", 100)]
+    fn number_valid_parses(#[case] input: &str, #[case] result: u8) {
+        assert_eq!(
+            Token::lexer(input).next(),
+            Some(Ok(Token::Number(unsafe {
+                NonZeroU8::new_unchecked(result)
+            })))
+        )
+    }
+
+    #[rstest]
+    #[case("0", IntErrorKind::Zero)]
+    #[case("1000", IntErrorKind::PosOverflow)]
+    fn number_invalid_fails(#[case] input: &str, #[case] error: IntErrorKind) {
+        assert_eq!(
+            Token::lexer(input).next(),
+            Some(Err(TokenError::InvalidNumber(parse_int_error(error))))
+        )
+    }
+
+    test_token!(DieIndicator, "d");
+    test_token!(Colon, ":");
+    test_token!(Plus, "+");
+    test_token!(Minus, "-");
+    test_token!(Multiply, "*");
+    test_token!(DivideFloor, "/", "/-");
+    test_token!(DivideRound, "/~");
+    test_token!(DivideCeil, "/+");
+    test_token!(LessThan, "<");
+    test_token!(LessThanEqual, "<=");
+    test_token!(GreaterThan, ">");
+    test_token!(GreaterThanEqual, ">=");
+    test_token!(Equal, "==");
+    test_token!(NotEqual, "!=");
+    test_token!(ParenOpen, "(");
+    test_token!(ParenClose, ")");
+
+    #[rstest]
+    #[case("adv")]
+    #[case("dis")]
+    #[case("hello_world")]
+    fn symbol_valid_parses(#[case] input: &str) {
+        assert_eq!(Token::lexer(input).next(), Some(Ok(Token::Symbol(input))))
+    }
+}
