@@ -70,10 +70,8 @@ impl<'src> Token<'src> {
                 None => None,
                 Some((token, span)) => {
                     if token != Err(TokenError::Unrecognized) {
-                        println!("-- Not unrecognized");
                         Some((token, span))
                     } else {
-                        println!("-- Unrecognized");
                         let mut end = span.end;
 
                         while let Some((token_n, span_n)) = it.peek() {
