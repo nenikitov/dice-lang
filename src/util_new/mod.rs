@@ -15,7 +15,10 @@ impl<T: PartialEq> PartialEq for Spanned<T> {
 
 impl<T: fmt::Debug> fmt::Debug for Spanned<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.value.fmt(f)
+        f.debug_struct("Spanned")
+            .field("value", &self.value)
+            .field("span", &self.span)
+            .finish()
     }
 }
 

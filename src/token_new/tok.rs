@@ -13,9 +13,9 @@ pub enum TokenError {
     InvalidInteger(ParseIntError),
 }
 
-#[derive(Logos)]
+#[derive(Logos, PartialEq, Debug)]
 #[logos(skip r"\s+", error = TokenError)]
-enum TokenKind<'src> {
+pub enum TokenKind<'src> {
     // Comments
     #[regex(r#""(?:[^"\\\n]|\\["\\t])*""#)]
     Label(&'src str),
@@ -65,18 +65,43 @@ impl<'src> Token<'src> {
     pub fn parse(source: &'src str) -> impl Iterator<Item = Self> {
         TokenKind::lexer(source)
             .spanned()
-            .chunk_by(|(token, _)| matches!(token, Err(TokenError::Unrecognized)))
-            .into_iter()
-            .flat_map(|(is_unrecognized, chunk)| {
-                let chunk: Vec<_> = chunk.collect();
-                if is_unrecognized {
-                    chunk
-                } else {
-                    let (_, first) = chunk.first().unwrap();
-                    let (_, last) = chunk.last().unwrap();
-                    vec![(Err(TokenError::Unrecognized), first.start..last.end)]
+            .peekable()
+            .batching(|it| match it.next() {
+                None => None,
+                Some((token, span)) => {
+                    if token != Err(TokenError::Unrecognized) {
+                        Some((token, span))
+                    } else {
+                        let mut end = span.end;
+
+                        while let Some((token_next, span_next)) = it.peek() {
+                            if token_next != &Err(TokenError::Unrecognized) {
+                                return it.next();
+                            } else if span_next.start == end {
+                                end = span_next.end;
+                                it.next();
+                            } else {
+                                return Some((Err(TokenError::Unrecognized), span.start..end));
+                            }
+                        }
+
+                        Some((Err(TokenError::Unrecognized), span.start..end))
+                    }
                 }
             })
             .map(|e| e.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn AAAAAA() {
+        for t in Token::parse("10d40 + HELLO WORLD + WORLD + 20") {
+            eprintln!("{t:?}");
+        }
+        panic!("Hey");
     }
 }
