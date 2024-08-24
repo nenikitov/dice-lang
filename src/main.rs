@@ -1,6 +1,9 @@
 mod parser;
 mod token;
 
+mod token_new;
+mod util_new;
+
 use std::error::Error;
 
 use ariadne::{Color, Label, Report, ReportKind, Source};

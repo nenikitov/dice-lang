@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 ariadne = "0.4.1"
 chumsky = { version = "1.0.0-alpha.7", features = ["label"] }
+itertools = "0.13.0"
 logos = "0.14.1"
 
 [dev-dependencies]
