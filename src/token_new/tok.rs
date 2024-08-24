@@ -74,16 +74,15 @@ impl<'src> Token<'src> {
                     } else {
                         let mut end = span.end;
 
-                        while let Some((token_n, span_n)) = it.peek() {
-                            if let Err(TokenError::Unrecognized) = token_n {
-                                if span_n.start == end {
-                                    end = span_n.end;
+                        while let Some(next) = it.peek() {
+                            match next {
+                                (Err(TokenError::Unrecognized), span_next)
+                                    if span_next.start == end =>
+                                {
+                                    end = span_next.end;
                                     it.next();
-                                } else {
-                                    break;
                                 }
-                            } else {
-                                break;
+                                _ => break,
                             }
                         }
 
