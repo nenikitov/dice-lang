@@ -70,18 +70,22 @@ impl<'src> Token<'src> {
                 None => None,
                 Some((token, span)) => {
                     if token != Err(TokenError::Unrecognized) {
+                        println!("-- Not unrecognized");
                         Some((token, span))
                     } else {
+                        println!("-- Unrecognized");
                         let mut end = span.end;
 
-                        while let Some((token_next, span_next)) = it.peek() {
-                            if token_next != &Err(TokenError::Unrecognized) {
-                                return it.next();
-                            } else if span_next.start == end {
-                                end = span_next.end;
-                                it.next();
+                        while let Some((token_n, span_n)) = it.peek() {
+                            if let Err(TokenError::Unrecognized) = token_n {
+                                if span_n.start == end {
+                                    end = span_n.end;
+                                    it.next();
+                                } else {
+                                    break;
+                                }
                             } else {
-                                return Some((Err(TokenError::Unrecognized), span.start..end));
+                                break;
                             }
                         }
 
@@ -98,7 +102,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn AAAAAA() {
+    fn new_token() {
         for t in Token::parse("10d40 + HELLO WORLD + WORLD + 20") {
             eprintln!("{t:?}");
         }
