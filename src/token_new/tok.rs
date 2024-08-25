@@ -66,28 +66,22 @@ impl<'src> Token<'src> {
         TokenKind::lexer(source)
             .spanned()
             .peekable()
-            .batching(|it| match it.next() {
-                None => None,
-                Some((token, span)) => {
-                    if token != Err(TokenError::Unrecognized) {
-                        Some((token, span))
-                    } else {
-                        let mut end = span.end;
+            .batching(|it| {
+                let (token, span) = it.next()?;
 
-                        while let Some(next) = it.peek() {
-                            match next {
-                                (Err(TokenError::Unrecognized), span_next)
-                                    if span_next.start == end =>
-                                {
-                                    end = span_next.end;
-                                    it.next();
-                                }
-                                _ => break,
-                            }
-                        }
+                if token != Err(TokenError::Unrecognized) {
+                    Some((token, span))
+                } else {
+                    let mut end = span.end;
 
-                        Some((Err(TokenError::Unrecognized), span.start..end))
+                    while let Some((Err(TokenError::Unrecognized), span_next)) = it.peek()
+                        && span_next.start == end
+                    {
+                        end = span_next.end;
+                        it.next();
                     }
+
+                    Some((Err(TokenError::Unrecognized), span.start..end))
                 }
             })
             .map(|e| e.into())
