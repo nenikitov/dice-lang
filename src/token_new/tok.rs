@@ -13,7 +13,7 @@ pub enum TokenError {
     InvalidInteger(ParseIntError),
 }
 
-#[derive(Logos, PartialEq, Debug)]
+#[derive(Logos, PartialEq, Debug, Clone)]
 #[logos(skip r"\s+", error = TokenError)]
 pub enum TokenKind<'src> {
     // Comments
@@ -54,49 +54,43 @@ pub enum TokenKind<'src> {
     #[token(">=")]
     GreaterThanEqual,
 
+    // Separators
+    #[token("(")]
+    ParenOpen,
+    #[token(")")]
+    ParenClose,
+    #[token(",")]
+    Comma,
+
     // Other
     #[regex(r"[a-z_]+")]
     Identifier(&'src str),
 }
 
-pub type Token<'src> = Spanned<Result<TokenKind<'src>, TokenError>>;
+pub type Token<'src> = Result<TokenKind<'src>, TokenError>;
+pub type TokenSpanned<'src> = Spanned<Token<'src>>;
 
-impl<'src> Token<'src> {
-    pub fn parse(source: &'src str) -> impl Iterator<Item = Self> {
-        TokenKind::lexer(source)
-            .spanned()
-            .peekable()
-            .batching(|it| {
-                let (token, span) = it.next()?;
+pub fn tokenize<'src>(source: &'src str) -> impl Iterator<Item = TokenSpanned<'src>> {
+    TokenKind::lexer(source)
+        .spanned()
+        .peekable()
+        .batching(|it| {
+            let (token, span) = it.next()?;
 
-                if token != Err(TokenError::Unrecognized) {
-                    Some((token, span))
-                } else {
-                    let mut end = span.end;
+            if token != Err(TokenError::Unrecognized) {
+                Some((token, span))
+            } else {
+                let mut end = span.end;
 
-                    while let Some((Err(TokenError::Unrecognized), span_next)) = it.peek()
-                        && span_next.start == end
-                    {
-                        end = span_next.end;
-                        it.next();
-                    }
-
-                    Some((Err(TokenError::Unrecognized), span.start..end))
+                while let Some((Err(TokenError::Unrecognized), span_next)) = it.peek()
+                    && span_next.start == end
+                {
+                    end = span_next.end;
+                    it.next();
                 }
-            })
-            .map(|e| e.into())
-    }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn new_token() {
-        for t in Token::parse("10d40 + HELLO WORLD + WORLD + 20") {
-            eprintln!("{t:?}");
-        }
-        panic!("Hey");
-    }
+                Some((Err(TokenError::Unrecognized), span.start..end))
+            }
+        })
+        .map(|(token, span)| (token, span.into()))
 }

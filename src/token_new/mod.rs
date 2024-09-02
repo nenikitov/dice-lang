@@ -1,1 +1,2 @@
-mod tok;
+pub mod tok;
+pub mod ast;
