@@ -1,3 +1,1 @@
-use chumsky::span::SimpleSpan;
-
-pub type Spanned<T> = (T, SimpleSpan);
+pub type Spanned<T> = (T, chumsky::span::SimpleSpan);

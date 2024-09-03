@@ -16,6 +16,9 @@ pub enum TokenError {
 #[derive(Logos, PartialEq, Debug, Clone)]
 #[logos(skip r"\s+", error = TokenError)]
 pub enum TokenKind<'src> {
+    // Error
+    Err(TokenError),
+
     // Comments
     #[regex(r#""(?:[^"\\\n]|\\["\\t])*""#)]
     Label(&'src str),
@@ -67,29 +70,32 @@ pub enum TokenKind<'src> {
     Identifier(&'src str),
 }
 
-pub type Token<'src> = Result<TokenKind<'src>, TokenError>;
-pub type TokenSpanned<'src> = Spanned<Token<'src>>;
+pub type Token<'src> = Spanned<TokenKind<'src>>;
 
-pub fn tokenize<'src>(source: &'src str) -> impl Iterator<Item = TokenSpanned<'src>> {
+pub fn tokenize<'src>(source: &'src str) -> impl Iterator<Item = Token<'src>> {
     TokenKind::lexer(source)
         .spanned()
+        .map(|(token, span)| match token {
+            Ok(token) => (token, span),
+            Err(error) => (TokenKind::Err(error), span),
+        })
         .peekable()
         .batching(|it| {
             let (token, span) = it.next()?;
 
-            if token != Err(TokenError::Unrecognized) {
+            if token != TokenKind::Err(TokenError::Unrecognized) {
                 Some((token, span))
             } else {
                 let mut end = span.end;
 
-                while let Some((Err(TokenError::Unrecognized), span_next)) = it.peek()
+                while let Some((TokenKind::Err(TokenError::Unrecognized), span_next)) = it.peek()
                     && span_next.start == end
                 {
                     end = span_next.end;
                     it.next();
                 }
 
-                Some((Err(TokenError::Unrecognized), span.start..end))
+                Some((TokenKind::Err(TokenError::Unrecognized), span.start..end))
             }
         })
         .map(|(token, span)| (token, span.into()))

@@ -1,20 +1,11 @@
 #![feature(let_chains, trait_alias)]
 
-mod parser;
 mod token;
 
 mod token_new;
 mod util_new;
 
 use std::error::Error;
-
-use ariadne::{Color, Label, Report, ReportKind, Source};
-use chumsky::{
-    input::{Input, Stream},
-    Parser,
-};
-use logos::Logos;
-use token::Token;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let src = std::fs::read_to_string(
@@ -25,7 +16,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let tokens = crate::token_new::tok::tokenize(&src);
     // let tokens = Stream::from_iter(tokens).spanned((src.len()..src.len()).into());
-    let tokens = Stream::from_iter(tokens).spanned((src.len()..src.len()).into());
+    //let tokens = Stream::from_iter(tokens).spanned((src.len()..src.len()).into());
 
     // match parser::parser().parse(tokens).into_result() {
     //     Ok(ast) => println!("{ast:#?}"),
