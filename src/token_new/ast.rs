@@ -95,9 +95,15 @@ parser_fn! {
 }
 
 parser_fn! {
+    fn integer_primitive()<'src> -> NonZeroU8 {
+        select! { TokenKind::Integer(n) => n }
+    }
+}
+
+parser_fn! {
     fn integer()<'src> -> Expression<'src> {
         label()
-            .then(select! { TokenKind::Integer(n) => n })
+            .then(integer_primitive())
             .map(|(l, n)| ExpressionKind::Integer { label: l, value: n })
             .spanned()
     }
@@ -120,6 +126,34 @@ parser_fn! {
 }
 
 parser_fn! {
+    fn dice()<'src> -> Expression<'src> {
+        label()
+            .then(integer_primitive().or_not())
+            .then_ignore(just(TokenKind::Identifier("d")))
+            .then(integer_primitive())
+            .then(modifier_call().repeated().collect::<Vec<_>>())
+            .map(|(((label, count), sides), modifiers)| { ExpressionKind::Dice {
+                label,
+                count: count.unwrap_or(NonZeroU8::new(1).unwrap()),
+                sides,
+                modifiers
+            }})
+            .spanned()
+    }
+}
+
+parser_fn! {
+    fn atom()<'src> -> Expression<'src> {
+        choice((
+            dice(),
+            integer(),
+            expression()
+                .delimited_by(just(TokenKind::ParenOpen), just(TokenKind::ParenClose))
+        ))
+    }
+}
+
+parser_fn! {
     fn expression()<'src> -> Expression<'src> {
         todo()
     }
@@ -132,8 +166,8 @@ pub fn parse<'src>(source: Vec<Token<'src>>) -> Expression<'src> {
         let source = Stream::from_iter(source).spanned((end..end).into());
 
         //let expression: ParseResult<_, _> = integer().parse(source);
-        let expression: ParseResult<(ExpressionKind, chumsky::span::SimpleSpan), Rich<'_, _>> =
-            integer().parse(source);
+        //let expression: ParseResult<(ExpressionKind, chumsky::span::SimpleSpan), Rich<'_, _>> =
+        //    integer_primitive().parse(source);
 
         todo!()
         //(Ok(todo!()), (start..end).into())
