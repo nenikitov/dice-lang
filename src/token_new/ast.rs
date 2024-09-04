@@ -8,6 +8,12 @@ use chumsky::{
 
 use crate::{token_new::tok::*, util_new::Spanned};
 
+#[derive(Clone)]
+pub enum UnaryArithmeticOperator {
+    Negation,
+}
+
+#[derive(Clone)]
 pub enum BinaryOperator {
     Add,
     Subtract,
@@ -17,7 +23,8 @@ pub enum BinaryOperator {
     DivideCeil,
 }
 
-pub enum LogicalUnaryOperator {
+#[derive(Clone)]
+pub enum UnaryLogicalOperator {
     Equal,
     NotEqual,
     LessThan,
@@ -49,13 +56,17 @@ pub enum ExpressionKind<'src> {
     },
 
     // Operations
+    UnaryArithmetic {
+        op: UnaryArithmeticOperator,
+        rhs: Box<Expression<'src>>,
+    },
     Binary {
         op: BinaryOperator,
         lhs: Box<Expression<'src>>,
         rhs: Box<Expression<'src>>,
     },
-    LogicalUnary {
-        op: LogicalUnaryOperator,
+    UnaryLogical {
+        op: UnaryLogicalOperator,
         rhs: Box<Expression<'src>>,
     },
 }
@@ -65,6 +76,10 @@ pub type Expression<'src> = Spanned<ExpressionKind<'src>>;
 macro_rules! parser_fn {
     (fn $name:ident()<'src> -> $out:ty $body:block) => {
         fn $name<'src, I>() -> impl Parser<'src, I, $out, extra::Err<Rich<'src, TokenKind<'src>>>>
+        where I: ValueInput<'src, Token = TokenKind<'src>, Span = SimpleSpan> $body
+    };
+    (fn $name:ident(expression)<'src> -> $out:ty $body:block) => {
+        fn $name<'src, I>(expression: impl Parser<'src, I, $out, extra::Err<Rich<'src, TokenKind<'src>>>>) -> impl Parser<'src, I, $out, extra::Err<Rich<'src, TokenKind<'src>>>>
         where I: ValueInput<'src, Token = TokenKind<'src>, Span = SimpleSpan> $body
     };
 }
@@ -149,6 +164,95 @@ parser_fn! {
             integer(),
             expression()
                 .delimited_by(just(TokenKind::ParenOpen), just(TokenKind::ParenClose))
+        ))
+    }
+}
+
+parser_fn! {
+    fn unary_arithmetic()<'src> -> Expression<'src> {
+        let op = choice((
+            just(TokenKind::Minus).to(UnaryArithmeticOperator::Negation),
+        ));
+        let operand = atom();
+
+        op.repeated().foldr_with(operand, |op, rhs, e| {
+            (
+                ExpressionKind::UnaryArithmetic {
+                    op,
+                    rhs: Box::new(rhs)
+                },
+                e.span()
+            )
+        })
+    }
+}
+
+parser_fn! {
+    fn binary_product()<'src> -> Expression<'src> {
+        let op = choice((
+            just(TokenKind::Star).to(BinaryOperator::Multiply),
+            just(TokenKind::Slash).to(BinaryOperator::DivideFloor),
+            just(TokenKind::SlashMinus).to(BinaryOperator::DivideFloor),
+            just(TokenKind::SlashTilde).to(BinaryOperator::DivideRound),
+            just(TokenKind::SlashPlus).to(BinaryOperator::DivideCeil),
+        ));
+        let operand = unary_arithmetic;
+
+        operand().foldl_with(op.then(operand()).repeated(), |lhs, (op, rhs), e| {
+            (
+                ExpressionKind::Binary {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                },
+                e.span(),
+            )
+        })
+    }
+}
+
+parser_fn! {
+    fn binary_sum()<'src> -> Expression<'src> {
+        let op = choice((
+            just(TokenKind::Plus).to(BinaryOperator::Add),
+            just(TokenKind::Minus).to(BinaryOperator::Subtract),
+        ));
+        let operand = binary_product;
+
+        operand().foldl_with(op.then(operand()).repeated(), |lhs, (op, rhs), e| {
+            (
+                ExpressionKind::Binary {
+                    op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                },
+                e.span(),
+            )
+        })
+    }
+}
+
+parser_fn! {
+    fn logical_unary()<'src> -> Expression<'src> {
+        let op = choice((
+            just(TokenKind::Equal).to(UnaryLogicalOperator::Equal),
+            just(TokenKind::NotEqual).to(UnaryLogicalOperator::NotEqual),
+            just(TokenKind::LessThan).to(UnaryLogicalOperator::LessThan),
+            just(TokenKind::LessThanEqual).to(UnaryLogicalOperator::LessThanEqual),
+            just(TokenKind::GreaterThan).to(UnaryLogicalOperator::GreaterThan),
+            just(TokenKind::GreaterThanEqual).to(UnaryLogicalOperator::GreaterThanEqual),
+        ));
+        let operand = binary_sum;
+
+        choice((
+            op
+                .then(operand())
+                .map(|(op, rhs)| ExpressionKind::UnaryLogical {
+                    op,
+                    rhs: Box::new(rhs)
+                })
+                .spanned(),
+            operand()
         ))
     }
 }
