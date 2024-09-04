@@ -62,9 +62,12 @@ pub enum ExpressionKind<'src> {
 
 pub type Expression<'src> = Spanned<ExpressionKind<'src>>;
 
-trait TokenInput<'src> = ValueInput<'src, Token = TokenKind<'src>, Span = SimpleSpan>;
-trait TokenParser<'src, I: TokenInput<'src>, O = Expression<'src>> =
-    Parser<'src, I, O, extra::Err<Rich<'src, TokenKind<'src>>>>;
+macro_rules! parser_fn {
+    (fn $name:ident()<'src> -> $out:ty $body:block) => {
+        fn $name<'src, I>() -> impl Parser<'src, I, $out, extra::Err<Rich<'src, TokenKind<'src>>>>
+        where I: ValueInput<'src, Token = TokenKind<'src>, Span = SimpleSpan> $body
+    };
+}
 
 trait SpannedParser<'src, I, O, E>
 where
@@ -85,20 +88,41 @@ where
     }
 }
 
-fn label<'src, I: TokenInput<'src>>() -> impl TokenParser<'src, I, Option<&'src str>> {
-    select! { TokenKind::Label(l) => l}.or_not()
+parser_fn! {
+    fn label()<'src> -> Option<&'src str> {
+        select! { TokenKind::Label(l) => l}.or_not()
+    }
 }
 
-fn integer<'src, I: TokenInput<'src>>() -> impl TokenParser<'src, I> {
-    let integer = select! { TokenKind::Integer(n) => n };
-    label()
-        .then(integer)
-        .map(|(l, n)| ExpressionKind::Integer { label: l, value: n })
-        .spanned()
+parser_fn! {
+    fn integer()<'src> -> Expression<'src> {
+        label()
+            .then(select! { TokenKind::Integer(n) => n })
+            .map(|(l, n)| ExpressionKind::Integer { label: l, value: n })
+            .spanned()
+    }
 }
 
-fn dice<'src, I: TokenInput<'src>>() -> impl TokenParser<'src, I> {
-    todo()
+parser_fn! {
+    fn modifier_call()<'src> -> ModifierCall<'src> {
+        just(TokenKind::Colon)
+            .ignore_then(label())
+            .then(select! {
+                TokenKind::Identifier(i) => i
+            })
+            .then(
+                expression()
+                    .delimited_by(just(TokenKind::ParenOpen), just(TokenKind::ParenClose))
+                    .or_not()
+            )
+            .map(|((label, name), argument)| ModifierCall { label, name, argument })
+    }
+}
+
+parser_fn! {
+    fn expression()<'src> -> Expression<'src> {
+        todo()
+    }
 }
 
 pub fn parse<'src>(source: Vec<Token<'src>>) -> Expression<'src> {
@@ -111,8 +135,10 @@ pub fn parse<'src>(source: Vec<Token<'src>>) -> Expression<'src> {
         let expression: ParseResult<(ExpressionKind, chumsky::span::SimpleSpan), Rich<'_, _>> =
             integer().parse(source);
 
-        (Ok(todo!()), (start..end).into())
+        todo!()
+        //(Ok(todo!()), (start..end).into())
     } else {
-        (Err(ExpressionError::Empty), (0..0).into())
+        todo!()
+        // (Err(ExpressionError::Empty), (0..0).into())
     }
 }
