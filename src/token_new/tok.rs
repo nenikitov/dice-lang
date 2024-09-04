@@ -20,7 +20,7 @@ pub enum TokenKind<'src> {
     Err(TokenError),
 
     // Comments
-    #[regex(r#""(?:[^"\\\n]|\\["\\t])*""#)]
+    #[regex(r#""([^"\\\n]|\\["\\t])*""#, |l| &l.slice()[1..l.slice().len() - 1])]
     Label(&'src str),
 
     // Literals
