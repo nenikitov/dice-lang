@@ -1,4 +1,7 @@
-use std::num::{NonZeroU8, ParseIntError};
+use std::{
+    fmt,
+    num::{NonZeroU8, ParseIntError},
+};
 
 use itertools::Itertools;
 use logos::Logos;
@@ -11,6 +14,19 @@ pub enum TokenError {
     Unrecognized,
 
     InvalidInteger(ParseIntError),
+}
+
+impl fmt::Display for TokenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                TokenError::Unrecognized => "unrecognized".to_string(),
+                TokenError::InvalidInteger(e) => format!("{e}"),
+            }
+        )
+    }
 }
 
 #[derive(Logos, PartialEq, Debug, Clone)]
@@ -70,6 +86,48 @@ pub enum TokenKind<'src> {
     Identifier(&'src str),
 }
 
+impl<'src> fmt::Display for TokenKind<'src> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                // Error
+                TokenKind::Err(err) => format!("Invalid token: {err}"),
+
+                // Comments
+                TokenKind::Label(label) => format!("\"{}\"", label),
+
+                // Literals
+                TokenKind::Integer(integer) => integer.to_string(),
+
+                // Operators
+                TokenKind::Colon => ":".to_string(),
+                TokenKind::Plus => "+".to_string(),
+                TokenKind::Minus => "-".to_string(),
+                TokenKind::Star => "*".to_string(),
+                TokenKind::Slash => "/".to_string(),
+                TokenKind::SlashMinus => "/-".to_string(),
+                TokenKind::SlashTilde => "/~".to_string(),
+                TokenKind::SlashPlus => "/+".to_string(),
+                TokenKind::Equal => "==".to_string(),
+                TokenKind::NotEqual => "!=".to_string(),
+                TokenKind::LessThan => "<".to_string(),
+                TokenKind::LessThanEqual => "<=".to_string(),
+                TokenKind::GreaterThan => ">".to_string(),
+                TokenKind::GreaterThanEqual => ">=".to_string(),
+
+                // Separators
+                TokenKind::ParenOpen => "(".to_string(),
+                TokenKind::ParenClose => ")".to_string(),
+                TokenKind::Comma => ",".to_string(),
+
+                // Other
+                TokenKind::Identifier(identifier) => identifier.to_string(),
+            }
+        )
+    }
+}
 pub type Token<'src> = Spanned<TokenKind<'src>>;
 
 pub fn tokenize<'src>(source: &'src str) -> impl Iterator<Item = Token<'src>> {

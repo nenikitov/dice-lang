@@ -117,20 +117,20 @@ where
 
 parser_fn! {
     fn label()<'src> -> Option<&'src str> {
-        select! { TokenKind::Label(l) => l}.or_not()
+        select! { TokenKind::Label(l) => l}.or_not().labelled("double quoted string")
     }
 }
 
 parser_fn! {
     fn integer_primitive()<'src> -> NonZeroU8 {
-        select! { TokenKind::Integer(n) => n }
+        select! { TokenKind::Integer(n) => n }.labelled("positive integer")
     }
 }
 
 parser_fn! {
     fn integer()<'src> -> Expression<'src> {
         label()
-            .then(integer_primitive())
+            .then(integer_primitive().labelled("constant (positive integer)"))
             .map(|(l, n)| ExpressionKind::Integer { label: l, value: n })
             .spanned()
     }
@@ -140,13 +140,12 @@ parser_fn! {
     fn modifier_call(expression)<'src> -> ModifierCall<'src> {
         just(TokenKind::Colon)
             .ignore_then(label())
-            .then(select! {
-                TokenKind::Identifier(i) => i
-            })
+            .then(select! { TokenKind::Identifier(i) => i }.labelled("modifier name"))
             .then(
                 expression()
                     .delimited_by(just(TokenKind::ParenOpen), just(TokenKind::ParenClose))
                     .or_not()
+                    .labelled("modifier argument")
             )
             .map(|((label, name), argument)| ModifierCall { label, name, argument })
     }
@@ -155,9 +154,9 @@ parser_fn! {
 parser_fn! {
     fn dice(expression)<'src> -> Expression<'src> {
         label()
-            .then(integer_primitive().or_not())
+            .then(integer_primitive().or_not().labelled("die count (positive integer)"))
             .then_ignore(just(TokenKind::Identifier("d")))
-            .then(integer_primitive())
+            .then(integer_primitive().labelled("die sides (positive integer)"))
             .then(modifier_call(expression()).repeated().collect::<Vec<_>>())
             .map(|(((label, count), sides), modifiers)| { ExpressionKind::Dice {
                 label,
@@ -272,27 +271,32 @@ parser_fn! {
 parser_fn! {
     fn expression()<'src> -> Expression<'src> {
         recursive(logical_unary)
+            .then_ignore(end())
     }
 }
 
 pub fn parse<'src>(source: Vec<Token<'src>>) -> Expression<'src> {
-    if let (Some((_, start)), Some((_, end))) = (source.first(), source.last()) {
-        let start = start.start;
-        let end = end.end;
-        let source = Stream::from_iter(source).spanned((end..end).into());
-
-        dbg!(expression().parse(source));
-
-        //let expression: ParseResult<_, _> = integer().parse(source);
-        //let expression: ParseResult<(ExpressionKind, chumsky::span::SimpleSpan), Rich<'_, _>> =
-        //    integer_primitive().parse(source);
-
-        todo!()
-        //(Ok(todo!()), (start..end).into())
+    let (start, end) = if let (Some((_, start)), Some((_, end))) = (source.first(), source.last()) {
+        (start.start, end.end)
     } else {
-        todo!()
-        // (Err(ExpressionError::Empty), (0..0).into())
+        (0, 0)
+    };
+
+    let source = Stream::from_iter(source).spanned((end..end).into());
+
+    let r = expression().parse(source);
+    if r.has_errors() {
+        for r in r.errors() {
+            println!("- {r}")
+        }
+    } else {
+        dbg!(r.unwrap());
     }
+
+    //let expression: ParseResult<_, _> = integer().parse(source);
+    //let expression: ParseResult<(ExpressionKind, chumsky::span::SimpleSpan), Rich<'_, _>> =
+    //    integer_primitive().parse(source);
+    todo!()
 }
 
 #[cfg(test)]

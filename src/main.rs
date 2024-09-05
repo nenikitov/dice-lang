@@ -1,4 +1,5 @@
 #![feature(let_chains, trait_alias)]
+#![allow(dead_code)]
 
 mod token;
 
