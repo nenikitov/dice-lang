@@ -176,6 +176,33 @@ parser_fn! {
             expression()
                 .delimited_by(just(TokenKind::ParenOpen), just(TokenKind::ParenClose))
         ))
+        //.recover_with(
+        //    via_parser(any().repeated().map(|_| ExpressionKind::Err).spanned())
+        //)
+        // .recover_with(via_parser(nested_delimiters(
+        //     TokenKind::ParenOpen,
+        //     TokenKind::ParenClose,
+        //     [],
+        //     |span| (ExpressionKind::Err, span)
+        // )))
+    }
+}
+
+parser_fn! {
+    fn recovery()<'src> -> Expression<'src> {
+        recursive(|s| {
+            choice((
+                select! { TokenKind::Err(_) => () },
+                select! { TokenKind::Label(_) => () },
+                select! { TokenKind::Colon => () },
+                select! { TokenKind::Comma => () },
+                select! { TokenKind::Identifier(_) => () },
+                s.delimited_by(just(TokenKind::ParenOpen), just(TokenKind::ParenClose)).ignored(),
+            ))
+                 .repeated()
+                 .map(|_| ExpressionKind::Err)
+                 .spanned()
+        })
     }
 }
 
@@ -184,9 +211,9 @@ parser_fn! {
         let op = choice((
             just(TokenKind::Minus).to(UnaryArithmeticOperator::Negation),
         ));
-        let operand = atom(expression());
+        let operand = || atom(expression()).recover_with(via_parser(recovery()));
 
-        op.repeated().foldr_with(operand, |op, rhs, e| {
+        op.repeated().foldr_with(operand(), |op, rhs, e| {
             (
                 ExpressionKind::UnaryArithmetic {
                     op,
@@ -285,13 +312,7 @@ pub fn parse<'src>(source: Vec<Token<'src>>) -> Expression<'src> {
     let source = Stream::from_iter(source).spanned((end..end).into());
 
     let r = expression().parse(source);
-    if r.has_errors() {
-        for r in r.errors() {
-            println!("- {r}")
-        }
-    } else {
-        dbg!(r.unwrap());
-    }
+    dbg!(r);
 
     //let expression: ParseResult<_, _> = integer().parse(source);
     //let expression: ParseResult<(ExpressionKind, chumsky::span::SimpleSpan), Rich<'_, _>> =
@@ -307,6 +328,9 @@ mod tests {
     fn parsing() {
         let source = r#"
             "base roll"2d20:"being helped"adv:reroll(<= 3) + "ability score"5 + -3
+        "#;
+        let source = r#"
+            1 + (2 + 3
         "#;
         let source = tokenize(source).collect();
         parse(source);
