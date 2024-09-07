@@ -78,8 +78,6 @@ pub enum TokenKind<'src> {
     ParenOpen,
     #[token(")")]
     ParenClose,
-    #[token(",")]
-    Comma,
 
     // Other
     #[regex(r"[a-z_]+")]
@@ -120,7 +118,6 @@ impl<'src> fmt::Display for TokenKind<'src> {
                 // Separators
                 TokenKind::ParenOpen => "(".to_string(),
                 TokenKind::ParenClose => ")".to_string(),
-                TokenKind::Comma => ",".to_string(),
 
                 // Other
                 TokenKind::Identifier(identifier) => identifier.to_string(),

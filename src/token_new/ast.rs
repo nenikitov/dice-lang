@@ -176,9 +176,6 @@ parser_fn! {
             expression()
                 .delimited_by(just(TokenKind::ParenOpen), just(TokenKind::ParenClose))
         ))
-        //.recover_with(
-        //    via_parser(any().repeated().map(|_| ExpressionKind::Err).spanned())
-        //)
         // .recover_with(via_parser(nested_delimiters(
         //     TokenKind::ParenOpen,
         //     TokenKind::ParenClose,
@@ -194,14 +191,36 @@ parser_fn! {
             choice((
                 select! { TokenKind::Err(_) => () },
                 select! { TokenKind::Label(_) => () },
+                select! { TokenKind::Integer(_) => () },
                 select! { TokenKind::Colon => () },
-                select! { TokenKind::Comma => () },
                 select! { TokenKind::Identifier(_) => () },
                 s.delimited_by(just(TokenKind::ParenOpen), just(TokenKind::ParenClose)).ignored(),
+                select! { TokenKind::ParenOpen => () },
+                select! { TokenKind::ParenClose => () },
             ))
                  .repeated()
                  .map(|_| ExpressionKind::Err)
                  .spanned()
+        })
+    }
+}
+
+parser_fn! {
+    fn r()<'src> -> Expression<'src> {
+        recursive(|s| {
+            choice((
+                select! { TokenKind::Err(_) => () },
+                select! { TokenKind::Label(_) => () },
+                select! { TokenKind::Integer(_) => () },
+                select! { TokenKind::Colon => () },
+                select! { TokenKind::Identifier(_) => () },
+                s.delimited_by(just(TokenKind::ParenOpen), just(TokenKind::ParenClose)).ignored(),
+                select! { TokenKind::ParenOpen => () },
+                select! { TokenKind::ParenClose => () },
+            ))
+                .repeated()
+                .map(|_| ExpressionKind::Err)
+                .spanned()
         })
     }
 }
@@ -271,7 +290,7 @@ parser_fn! {
 }
 
 parser_fn! {
-    fn logical_unary(expression)<'src> -> Expression<'src> {
+    fn unary_logical(expression)<'src> -> Expression<'src> {
         let op = choice((
             just(TokenKind::Equal).to(UnaryLogicalOperator::Equal),
             just(TokenKind::NotEqual).to(UnaryLogicalOperator::NotEqual),
@@ -297,7 +316,7 @@ parser_fn! {
 
 parser_fn! {
     fn expression()<'src> -> Expression<'src> {
-        recursive(logical_unary)
+        recursive(unary_logical)
             .then_ignore(end())
     }
 }
@@ -330,7 +349,7 @@ mod tests {
             "base roll"2d20:"being helped"adv:reroll(<= 3) + "ability score"5 + -3
         "#;
         let source = r#"
-            1 + (2 + 3
+            1 + 1d + 3
         "#;
         let source = tokenize(source).collect();
         parse(source);
