@@ -1,4 +1,3 @@
-#![feature(let_chains, trait_alias)]
 #![allow(dead_code)]
 
 mod token;
@@ -15,7 +14,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .expect("First argument should be passed"),
     )?;
 
-    let tokens = crate::token_new::tok::tokenize(&src);
+    // let tokens = crate::token_new::tok::tokenize(&src);
     // let tokens = Stream::from_iter(tokens).spanned((src.len()..src.len()).into());
     //let tokens = Stream::from_iter(tokens).spanned((src.len()..src.len()).into());
 
