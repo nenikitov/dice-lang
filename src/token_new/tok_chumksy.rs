@@ -10,11 +10,6 @@ use chumsky::{
     prelude::*,
 };
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum TokenError {
-    Unrecognized,
-}
-
 pub struct ErrorMessage {
     message: String,
     span: Option<SimpleSpan>,
@@ -48,9 +43,53 @@ impl ParsingError for IntegerParsingError {
     fn hints(self) -> Vec<ErrorMessage> {
         match self {
             IntegerParsingError::Parse(_) => vec![ErrorMessage {
-                message: "ensure that the number is `>= 1` and `<= 255`".to_string(),
+                message: "Valid numbers are integers `>= 1` and `<= 255`".to_string(),
                 span: None,
             }],
+        }
+    }
+}
+
+pub enum LabelParsingError {
+    Unterminated(usize),
+    Escape(SimpleSpan),
+}
+
+impl ParsingError for LabelParsingError {
+    fn header(self) -> String {
+        match self {
+            LabelParsingError::Unterminated(_) => "Unterminated label".to_string(),
+            LabelParsingError::Escape(_) => "Invalid escape sequence".to_string(),
+        }
+    }
+
+    fn error(self) -> ErrorMessage {
+        match self {
+            LabelParsingError::Unterminated(_) => ErrorMessage {
+                message: "Quote start".to_string(),
+                span: Some((0..1).into()),
+            },
+            LabelParsingError::Escape(span) => ErrorMessage {
+                message: "Escape sequence".to_string(),
+                span: Some(span),
+            },
+        }
+    }
+
+    fn hints(self) -> Vec<ErrorMessage> {
+        match self {
+            LabelParsingError::Unterminated(len) => {
+                vec![ErrorMessage {
+                    message: "Should have been closed by here".to_string(),
+                    span: Some((len - 1..len).into()),
+                }]
+            }
+            LabelParsingError::Escape(span) => {
+                vec![ErrorMessage {
+                    message: r#"Valid escapes are `\"`, `\\`, `\t`, and `\n`"#.to_string(),
+                    span: Some(span),
+                }]
+            }
         }
     }
 }
@@ -95,12 +134,20 @@ where
 
 parser_fn! {
     fn integer()<'src> -> Integer {
-        regex(r"[0-9]+")
+        text::digits(10)
+            .labelled("digits")
+            .to_slice()
             .validate(|token, _, _| {
                 NonZeroU8::from_str(token)
                     .map_err(IntegerParsingError::Parse)
             })
             .spanned()
+    }
+}
+
+parser_fn! {
+    fn label()<'src> -> () {
+        todo()
     }
 }
 
@@ -140,8 +187,8 @@ mod tests {
 
     #[test]
     fn lexing() {
-        let source = r#"-50"#;
-        let source = integer().parse(source);
+        let source = r#"0000000000"#;
+        let source = integer().lazy().parse(source);
         dbg!(source);
         panic!()
     }
