@@ -7,7 +7,7 @@ use std::{
 
 use crate::util_new::Spanned;
 
-use chumsky::{error::Rich, prelude::*};
+use chumsky::{input::SliceInput, prelude::*, util::MaybeRef};
 use itertools::Itertools;
 
 use regex::Regex;
@@ -143,23 +143,61 @@ macro_rules! parser_fn {
     };
 }
 
-trait SpannedParser<'src, I, O, E>
+trait ParserSpanned<'src, I, O, E>
 where
-    I: Input<'src, Span = SimpleSpan>,
-    E: extra::ParserExtra<'src, I>,
-{
-    fn spanned(self) -> impl Parser<'src, I, Spanned<O>, E> + Clone;
-}
-
-impl<'src, T, I, O, E> SpannedParser<'src, I, O, E> for T
-where
-    T: Parser<'src, I, O, E> + Clone,
+    Self: Parser<'src, I, O, E> + Clone,
     I: Input<'src, Span = SimpleSpan>,
     E: extra::ParserExtra<'src, I>,
 {
     fn spanned(self) -> impl Parser<'src, I, Spanned<O>, E> + Clone {
         self.map_with(|it, e| (it, e.span()))
     }
+}
+
+impl<'src, T, I, O, E> ParserSpanned<'src, I, O, E> for T
+where
+    T: Parser<'src, I, O, E> + Clone,
+    I: Input<'src, Span = SimpleSpan>,
+    E: extra::ParserExtra<'src, I>,
+{
+}
+
+trait ParserSkipThenRetryUntil<'src, I, O, E>
+where
+    Self: Parser<'src, I, O, E> + Clone,
+    I: SliceInput<'src, Span = SimpleSpan>,
+    E: extra::ParserExtra<'src, I>,
+{
+    fn collect_while_fails(
+        self,
+        skip: impl Parser<'src, I, (), E> + Clone,
+    ) -> impl Parser<'src, I, I::Slice, E> + Clone {
+        custom(move |input| {
+            let start = input.offset();
+            loop {
+                let before = input.save();
+                let result = input.parse(self.clone());
+                input.rewind(before);
+                if result.is_ok() {
+                    break Ok(input.slice_since(start..));
+                }
+
+                let before = input.save();
+                if let Err(e) = input.parse(skip.clone()) {
+                    input.rewind(before);
+                    break Err(e);
+                }
+            }
+        })
+    }
+}
+
+impl<'src, T, I, O, E> ParserSkipThenRetryUntil<'src, I, O, E> for T
+where
+    T: Parser<'src, I, O, E> + Clone,
+    I: SliceInput<'src, Span = SimpleSpan>,
+    E: extra::ParserExtra<'src, I>,
+{
 }
 
 parser_fn!(
@@ -227,12 +265,31 @@ parser_fn!(
 
 parser_fn!(
     fn identifier<'src>() -> &'src str {
-        text::ascii::ident().labelled("identifier")
+        fn is_ident(c: char) -> bool {
+            (c.is_ascii_lowercase() && c.is_ascii_alphabetic()) || c == '_'
+        }
+
+        any()
+            .try_map(|c, span| {
+                if is_ident(c) {
+                    Ok(c)
+                } else {
+                    Err(chumsky::error::Error::<'src, &'src str>::expected_found(
+                        [],
+                        Some(MaybeRef::Val(c)),
+                        span,
+                    ))
+                }
+            })
+            .repeated()
+            .at_least(1)
+            .labelled("lowercase identifier")
+            .to_slice()
     }
 );
 
 parser_fn!(
-    fn token<'src>() -> () {
+    fn token<'src>() -> Result<TokenKind<'src>, &'src str> {
         let token = choice((
             // Literals
             integer().map(TokenKind::Integer),
@@ -258,32 +315,17 @@ parser_fn!(
             just(')').to(TokenKind::ParenClose),
         ));
 
-        custom(move |input| {
-            let error = input.parse(token.clone())().unwrap_err();
-
-            loop {
-                if matches!(input.peek(), Some(char) if char.is_whitespace()) {
-                    input.next();
-                    
-                }
-                if matches!(input.check(token.clone()), Err(_)) {
-                    input.parse(token.clone());
-                    continue;
-                }
-            }
-
-            let a = input.check(token.clone());
-            dbg!(a);
-            Ok(())
-        })
-        .ignored()
-
-        // token.recover_with(via_parser(any().map(|_| TokenKind::Plus)))
-
-        // token
-        //     .padded()
-        //     // .recover_with(via_parser(none_of(token).repeated()).map(|_| Err(())))
-        //     .recover_with(skip_then_retry_until(any().ignored(), end()))
+        choice((
+            token.clone().map(Ok),
+            choice((
+                token.clone().ignored(),
+                any().filter(|&c| char::is_whitespace(c)).ignored(),
+                end(),
+            ))
+            .collect_while_fails(any().ignored())
+            .padded()
+            .map(Err),
+        ))
     }
 );
 
@@ -293,11 +335,8 @@ mod tests {
 
     #[test]
     fn lexing() {
-        let source = r#"
-             $
-        "#
-        .trim();
-        let source = token().parse(source);
+        let source = r#"HELLO"#;
+        let source = identifier().parse(source);
         dbg!(source);
         panic!()
     }
