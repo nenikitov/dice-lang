@@ -10,6 +10,7 @@ ariadne = "0.4.1"
 chumsky = { version = "1.0.0-alpha.7", features = ["label", "regex"] }
 itertools = "0.13.0"
 logos = "0.14.1"
+regex = "1.10.6"
 
 [dev-dependencies]
 paste = "1.0.15"
