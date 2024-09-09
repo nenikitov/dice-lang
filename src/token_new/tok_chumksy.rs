@@ -171,17 +171,33 @@ where
     fn collect_while_fails(
         self,
         skip: impl Parser<'src, I, (), E> + Clone,
-    ) -> impl Parser<'src, I, I::Slice, E> + Clone {
+    ) -> impl Parser<'src, I, (I::Slice, Option<E::Error>), E> + Clone {
         custom(move |input| {
             let start = input.offset();
+            let mut first_error = None;
+
             loop {
+                // Are we at the end
+                let before = input.save();
+                if let Ok(()) = input.parse(end()) {
+                    break Err(E::Error::expected_found([], None, input.span_from(start..)));
+                }
+                input.rewind(before);
+
+                // Try to parse itself
                 let before = input.save();
                 let result = input.parse(self.clone());
                 input.rewind(before);
-                if result.is_ok() {
-                    break Ok(input.slice_since(start..));
+                match result {
+                    // Suceess, return everything before it
+                    Ok(_) => break Ok((input.slice_since(start..), first_error)),
+                    // Fail, record first error
+                    Err(e) if first_error.is_none() => first_error = Some(e),
+                    // Fail
+                    Err(_) => {}
                 }
 
+                // Skip to next token
                 let before = input.save();
                 if let Err(e) = input.parse(skip.clone()) {
                     input.rewind(before);
@@ -319,13 +335,13 @@ parser_fn!(
             token.clone().map(Ok),
             choice((
                 token.clone().ignored(),
-                any().filter(|&c| char::is_whitespace(c)).ignored(),
+                any().filter(|c: &char| c.is_whitespace()).ignored(),
                 end(),
             ))
             .collect_while_fails(any().ignored())
-            .padded()
-            .map(Err),
+            .map(|(slice, error)| Err(slice)),
         ))
+        .padded()
     }
 );
 
@@ -335,8 +351,8 @@ mod tests {
 
     #[test]
     fn lexing() {
-        let source = r#"HELLO"#;
-        let source = identifier().parse(source);
+        let source = r#"hAllo"#;
+        let source = token().repeated().collect::<Vec<_>>().parse(source);
         dbg!(source);
         panic!()
     }
