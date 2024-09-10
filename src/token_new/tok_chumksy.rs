@@ -7,10 +7,12 @@ use std::{
 
 use crate::util_new::Spanned;
 
-use chumsky::{input::SliceInput, prelude::*, util::MaybeRef};
+use chumsky::{prelude::*, util::MaybeRef};
 use itertools::Itertools;
 
 use regex::Regex;
+
+use super::chumsky::{ParserCollectErrors, ParserSkipThenRetryUntil, ParserSpanned};
 
 pub struct ErrorMessage {
     message: String,
@@ -143,79 +145,6 @@ macro_rules! parser_fn {
     };
 }
 
-trait ParserSpanned<'src, I, O, E>
-where
-    Self: Parser<'src, I, O, E> + Clone,
-    I: Input<'src, Span = SimpleSpan>,
-    E: extra::ParserExtra<'src, I>,
-{
-    fn spanned(self) -> impl Parser<'src, I, Spanned<O>, E> + Clone {
-        self.map_with(|it, e| (it, e.span()))
-    }
-}
-
-impl<'src, T, I, O, E> ParserSpanned<'src, I, O, E> for T
-where
-    T: Parser<'src, I, O, E> + Clone,
-    I: Input<'src, Span = SimpleSpan>,
-    E: extra::ParserExtra<'src, I>,
-{
-}
-
-trait ParserSkipThenRetryUntil<'src, I, O, E>
-where
-    Self: Parser<'src, I, O, E> + Clone,
-    I: SliceInput<'src, Span = SimpleSpan>,
-    E: extra::ParserExtra<'src, I>,
-{
-    fn collect_while_fails(
-        self,
-        skip: impl Parser<'src, I, (), E> + Clone,
-    ) -> impl Parser<'src, I, (I::Slice, Option<E::Error>), E> + Clone {
-        custom(move |input| {
-            let start = input.offset();
-            let mut first_error = None;
-
-            loop {
-                // Are we at the end
-                let before = input.save();
-                if let Ok(()) = input.parse(end()) {
-                    break Err(E::Error::expected_found([], None, input.span_from(start..)));
-                }
-                input.rewind(before);
-
-                // Try to parse itself
-                let before = input.save();
-                let result = input.parse(self.clone());
-                input.rewind(before);
-                match result {
-                    // Suceess, return everything before it
-                    Ok(_) => break Ok((input.slice_since(start..), first_error)),
-                    // Fail, record first error
-                    Err(e) if first_error.is_none() => first_error = Some(e),
-                    // Fail
-                    Err(_) => {}
-                }
-
-                // Skip to next token
-                let before = input.save();
-                if let Err(e) = input.parse(skip.clone()) {
-                    input.rewind(before);
-                    break Err(e);
-                }
-            }
-        })
-    }
-}
-
-impl<'src, T, I, O, E> ParserSkipThenRetryUntil<'src, I, O, E> for T
-where
-    T: Parser<'src, I, O, E> + Clone,
-    I: SliceInput<'src, Span = SimpleSpan>,
-    E: extra::ParserExtra<'src, I>,
-{
-}
-
 parser_fn!(
     fn integer<'src>() -> Integer {
         text::digits(10)
@@ -226,8 +155,51 @@ parser_fn!(
 );
 
 parser_fn!(
-    fn any_or_end<'src>() -> &'src str {
-        any().to_slice().or(end().to_slice())
+    fn ends_in_quote<'src>() -> () {
+        any()
+            .or_not()
+            .then(end())
+            .collect_while_fails(any().ignored())
+            .then_ignore(just('"'))
+            .ignored()
+    }
+);
+
+parser_fn!(
+    fn label_valid<'src>() -> String {
+        let escape = just('\\').ignore_then(
+            choice(
+                VALID_ESCAPES
+                    .iter()
+                    .map(|(&escape, &destination)| just(escape).to(destination))
+                    .collect::<Vec<_>>(),
+            )
+            .recover_with(via_parser(any().or_not().map(|c| c.unwrap_or('\\')))),
+        );
+
+        just('"')
+            .ignore_then(choice((escape, none_of('"'))).repeated().collect())
+            .then_ignore(just('"').ignored().recover_with(via_parser(end())))
+    }
+);
+
+parser_fn!(
+    fn label_checked<'src>() -> Result<String, Rich<'src, char>> {
+        let escape = just('\\').ignore_then(any().or_not());
+
+        let greedy = just('"')
+            .then(choice((escape.ignored(), none_of('"').ignored())).repeated())
+            .then(just('"').or_not())
+            .to_slice();
+
+        custom(move |input| {
+            let result = input.parse(label_valid());
+            let marker = input.save();
+            dbg!(&result);
+            Ok(result)
+        })
+        .nested_in(greedy)
+        //label_valid().collect_errors().nested_in(greedy)
     }
 );
 
@@ -351,8 +323,12 @@ mod tests {
 
     #[test]
     fn lexing() {
-        let source = r#"hAllo"#;
-        let source = token().repeated().collect::<Vec<_>>().parse(source);
+        let source = r#" 
+            "hello\d world\n invalid"
+        "#
+        .trim();
+        // let source = token().repeated().collect::<Vec<_>>().parse(source);
+        let source = label_checked().parse(source);
         dbg!(source);
         panic!()
     }
