@@ -1,0 +1,19 @@
+%YAML 1.2
+---
+name: ebnf
+file_extensions: [ebnf]
+scope: source.ebnf
+
+contexts:
+  main:
+    # Operators
+    - match: '[(){}\[\]|]'
+      scope: punctuation.ebnf
+
+    # Non terminal
+    - match: '<\w*>'
+      scope: variable.function.ebnf
+
+    # Terminal
+    - match: '[A-Z_]+'
+      scope: string.unquoted.terminal.ebnf

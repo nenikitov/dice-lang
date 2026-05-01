@@ -1,0 +1,13 @@
+[package]
+name = "interpreter"
+description = "CLI utility to interpret and run .die"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+backend = { path = "../backend" }
+clap = "4.6.1"
