@@ -6,8 +6,14 @@ scope: source.ebnf
 
 contexts:
   main:
+    # Comment
+    - match: '//.*$'
+      scope: comment.line.ebnf
+
     # Operators
     - match: '[(){}\[\]|]'
+      scope: punctuation.ebnf
+    - match: '::='
       scope: punctuation.ebnf
 
     # Non terminal
@@ -17,3 +23,5 @@ contexts:
     # Terminal
     - match: '[A-Z_]+'
       scope: string.unquoted.terminal.ebnf
+    - match: '".*?"'
+      scope: string.quoted.terminal.ebnf

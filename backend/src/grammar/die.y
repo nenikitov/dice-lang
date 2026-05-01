@@ -7,89 +7,109 @@
 %start Program
 
 %%
-// Program
-Program         -> ()
-                : Statement
-                    {}
-                ;
+// Entry
+Program                 ->  ()
+                        :   ExpressionsSemi
+                                {}
+                        ;
 
-Statement       -> ()
-                : Expr0
-                    {}
-                ;
+// Expressions
+ExpressionsSemi         ->  ()
+                        :   ExpressionsSemiList
+                                {}
+                        |   ExpressionsSemiList Expression
+                                {}
+                        ;
+ExpressionsSemiList     ->  ()
+                        :
+                                {}
+                        |   ExpressionsSemiList Expression ";"
+                                {}
+                        ;
 
-// Precedences
-Expr0           -> ()
-                : Expr1
-                    {}
-                | Expr0 "+" Expr1
-                    {}
-                | Expr0 "-" Expr1
-                    {}
-                ;
+ExpressionsComma        ->  ()
+                        :   ExpressionsCommaList
+                                {}
+                        |   ExpressionsCommaList Expression
+                                {}
+                        ;
+ExpressionsCommaList    ->  ()
+                        :
+                                {}
+                        |   ExpressionsCommaList Expression ","
+                                {}
+                        ;
 
-Expr1           -> ()
-                : Expr2
-                    {}
-                | Expr1 "*" Expr2
-                    {}
-                | Expr1 "/" Expr2
-                    {}
-                | Expr1 "/+" Expr2
-                    {}
-                | Expr1 "/-" Expr2
-                    {}
-                | Expr1 "/~" Expr2
-                    {}
-                ;
-
-Expr2           -> ()
-                : "(" Expr0 ")"
-                    {}
-                | ExprNote ExprAtom ExprAtomTail
-                    {}
-                ;
-
-ExprNote        -> ()
-                : "LIT_DOUBLE_QUOTED"
-                    {}
-                |
-                    {}
-                ;
-
-ExprAtom        -> ()
-                : "LIT_DIE"
-                    {}
-                | "LIT_NUMBER"
-                    {}
-                ;
-
-ExprAtomTail    -> ()
-                : ":" "LIT_IDENTIFIER" ExprArgs ExprAtomTail
-                    {}
-                |
-                    {}
-                ;
-
-ExprArgs        -> ()
-                :   "(" ExprArgsInner ")"
-                    {}
-                |
-                    {}
-                ;
-
-ExprArgsInner   -> ()
-                : Expr0 "," ExprArgsInner
-                    {}
-                | Expr0
-                    {}
-                |
-                    {}
-                ;
+// Expression
+// By precedence, from lowest to highest
+Expression              ->  ()
+                        :   Expression1
+                                {}
+                        |   "LET" "LIT_IDENTIFIER" "=" Expression
+                                {}
+                        |   "LIT_IDENTIFIER" "=" Expression
+                                {}
+                        ;
+Expression1             ->  ()
+                        :   Expression2
+                                {}
+                        |   Expression1 Expression1Op Expression2
+                                {}
+                        ;
+Expression1Op           ->  ()
+                        :   "+"
+                                {}
+                        |   "-"
+                                {}
+                        ;
+Expression2             ->  ()
+                        :   Expression3
+                                {}
+                        |   Expression2 Expression2Op Expression3
+                                {}
+                        ;
+Expression2Op           ->  ()
+                        :   "*"
+                                {}
+                        |   "/-"
+                                {}
+                        |   "/+"
+                                {}
+                        |   "/~"
+                                {}
+                        |   "/"
+                                {}
+                        ;
+Expression3             ->  ()
+                        :   Expression4
+                                {}
+                        |   Expression3 "." "LIT_IDENTIFIER"
+                                {}
+                        |   Expression3 "(" ExpressionsComma ")"
+                                {}
+                        ;
+Expression4             ->  ()
+                        :   Expression5
+                                {}
+                        |   "LIT_DOUBLE_QUOTED" Expression5
+                                {}
+                        ;
+Expression5             ->  ()
+                        :   "LIT_IDENTIFIER"
+                                {}
+                        |   "LIT_NUMBER"
+                                {}
+                        |   "LIT_DIE"
+                                {}
+                        |   "(" Expression ")"
+                                {}
+                        |   "{" ExpressionsSemi "}"
+                                {}
+                        ;
 
 // Other
-Unmatched       -> ()
-                : "UNMATCHED"
-                    {}
-                ;
+Unmatched               ->  ()
+                        :   "UNMATCHED"
+                                {}
+                        ;
 %%

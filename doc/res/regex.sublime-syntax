@@ -1,0 +1,27 @@
+%YAML 1.2
+---
+name: regex
+file_extensions: [regex]
+scope: source.regex
+
+contexts:
+  main:
+    # Comment
+    - match: '//.*$'
+      scope: comment.line.regex
+
+    # Escape
+    - match: '\\.'
+      scope: constant.character.escape.regex
+
+    # Operators
+    - match: '[(){}\[\]<>|\.\+\*\?-_^]'
+      scope: punctuation.regex
+    - match: '::='
+      scope: punctuation.regex
+
+    # Terminal
+    - match: '".*?"'
+      scope: string.quoted.terminal.regex
+    - match: '.'
+      scope: string.unquoted.terminal.regex

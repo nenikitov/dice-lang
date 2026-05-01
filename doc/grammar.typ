@@ -1,5 +1,8 @@
-#set raw(syntaxes: ("./res/ebnf.sublime-syntax",))
-#set page(margin: 0.5in)
+#set raw(syntaxes: (
+  "./res/ebnf.sublime-syntax",
+  "./res/regex.sublime-syntax",
+))
+
 #show raw: it => {
   let display = if it.block {
     block
@@ -16,137 +19,64 @@
   )
 }
 
-= Token
+= Tokens
 
-#table(
-  columns: 2,
-  table.header([Token], [Regular Expression]),
+```regex
+// Keywords
+"LET"               ::= let
 
-  [Colon],
-  [```re
-  :
-  ```],
+// Operators
+"="                 ::= =
+"."                 ::= \.
+"+"                 ::= \+
+"-"                 ::= \-
+"*"                 ::= \*
+"/+"                ::= \/\+
+"/-"                ::= \/\-
+"/~"                ::= \/~
+"/"                 ::= \/
 
-  [Plus],
-  [```re
-  \+
-  ```],
+// Punctuation
+"("                 ::= \(
+")"                 ::= \)
+"{"                 ::= \{
+"}"                 ::= \}
+";"                 ::= ;
+","                 ::= ,
 
-  [Minus],
-  [```re
-  -
-  ```],
-
-  [Star],
-  [```re
-  \*
-  ```],
-
-  [Slash Plus],
-  [```re
-  \/\+
-  ```],
-
-  [Slash Minus],
-  [```re
-  \/\-
-  ```],
-
-  [Slash Tilde],
-  [```re
-  \/\~
-  ```],
-
-  [Slash],
-  [```re
-  \/
-  ```],
-
-  [Parenthesis Open],
-  [```re
-  \(
-  ```],
-
-  [Parenthesis Close],
-  [```re
-  \)
-  ```],
-
-  [Comma],
-  [```re
-  ,
-  ```],
-
-  [Literal die],
-  [```re
-  (\d+)?d\d+
-  ```],
-
-  [Literal number],
-  [```re
-  \d+
-  ```],
-
-  [Literal identifier],
-  [```re
-  [a-z][a-z_]*
-  ```],
-
-  [Literal double quoted],
-  [```re
-  (\\.|[^"])*
-  ```],
-)
+// Literals
+"LIT_DIE"           ::= (\d+)?d\d+
+"LIT_NUMBER"        ::= \d+
+"LIT_IDENTIFIER"    ::= [a-z][a-z_]*
+"LIT_DOUBLE_QUOTED" ::= \"(\\.|[^\"])*\"
+```
 
 = Grammar
 
-#table(
-  columns: 2,
-  table.header([Rule], [EBNF Productions]),
+```ebnf
+<program>           ::= <expressions_semi>
 
-  [```ebnf
-  <program>
-  ```],
-  [```ebnf
-  <expression>
-  ```],
+// Expressions
+<expressions_semi>  ::= { <expression> ";" } [ <expression> [ ";" ] ]
+<expressions_comma> ::= { <expression> "," } [ <expression> [ "," ] ]
 
-  [```ebnf
-  <expression>
-  ```],
-  [```ebnf
-  <sum>
-  ```],
-
-  [```ebnf
-  <sum>
-  ```],
-  [```ebnf
-  <sum> ( PLUS | MINUS ) <product>
-  | <product>
-  ```],
-
-  [```ebnf
-  <product>
-  ```],
-  [```ebnf
-  <product> ( STAR | SLASH_PLUS | SLASH_MINUS | SLASH_TILDE | SLASH ) <atom>
-  | <atom>
-  ```],
-
-  [```ebnf
-  <atom>
-  ```],
-  [```ebnf
-  PAREN_OPEN <expression> PAREN_CLOSE
-  | [ LIT_DOUBLE_QUOTED ] ( LIT_NUMBER | <atom_die> )
-  ```],
-
-  [```ebnf
-  <atom_die>
-  ```],
-  [```ebnf
-  LIT_DIE { COLON LIT_IDENTIFIER [ PAREN_OPEN [ <expression> { COMMA <expression> } [ COMMA ] ] PAREN_CLOSE ] }
-  ```],
-)
-
+// Expression
+// By precedence, from lowest to highest
+<expression>        ::= "let" LIT_IDENTIFIER "=" <expression>
+                      | LIT_IDENTIFIER "=" <expression>
+                      | <expression_1>
+<expression_1>      ::= <expression_1> ( "+" | "-" ) <expression_2>
+                      | <expression_2>
+<expression_2>      ::= <expression_2> ( "*" | "/-" | "/+" | "/") <expression_3>
+                      | <expression_3>
+<expression_3>      ::= <expression_3> "." LIT_IDENTIFIER
+                      | <expression_3> "(" [ <expressions_comma> ] ")"
+                      | <expression_4>
+<expression_4>      ::= <expression_5>
+                      | LIT_DOUBLE_QUOTED <expression_5>
+<expression_5>      ::= LIT_IDENTIFIER
+                      | LIT_NUMBER
+                      | LIT_DIE
+                      | "(" <expression> ")"
+                      | "{" <expressions_semi> "}"
+```
