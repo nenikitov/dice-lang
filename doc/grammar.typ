@@ -80,3 +80,44 @@
                       | "(" <expression> ")"
                       | "{" <expressions_semi> "}"
 ```
+
+= AST
+
+```rust
+struct Program(Block);
+
+struct Block{
+  body: Vec<Expression>,
+  last: Option<Expression>
+}
+
+enum Expression {
+  Declaration {
+    left: Lexeme,
+    right: Expression,
+  },
+  Assignment {
+    left: Lexeme,
+    right: Expression,
+  },
+  Binary {
+    left: Expression,
+    op: Lexeme,
+    right: Expression,
+  },
+  Tagged {
+    tag: Lexeme,
+    expression: Expression,
+  },
+  Field {
+    expression: Expression,
+    field: Lexeme,
+  },
+  Call {
+    expression: Expression,
+    arguments: Vec<Expression>,
+  },
+  Literal(Lexeme),
+  Block(Block),
+}
+```

@@ -1,3 +1,5 @@
+pub mod ast;
+
 use std::io::{self, BufRead, Write};
 
 use lrlex::lrlex_mod;
@@ -33,7 +35,7 @@ pub fn run() {
                     println!("{}", e.pp(&lexer, &die_y::token_epp));
                 }
                 match res {
-                    Some(_) => println!("Ok"),
+                    Some(inner) => println!("{inner:#?}"),
                     _ => eprintln!("Unable to evaluate expression.")
                 }
             }
